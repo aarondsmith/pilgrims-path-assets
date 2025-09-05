@@ -1,13 +1,30 @@
 /*! Pilgrim's Path — Temperature/Precipitation Chart
  *  Public API: window.pilgrim.tempChart.render(container, data, options)
+ *  - container: DOM element (should have data-pilgrim="chart")
+ *  - data: { highF:number[12], meanF:number[12], lowF:number[12], precipIn:number[12] }
+ *  - options?: {
+ *      locationLabel?: string,
+ *      unitsDefault?: "imperial"|"metric",
+ *      wetMonths?: number[],  // e.g., [10,11,0,1,2]  (Nov–Mar)
+ *      dryMonths?: number[],  // e.g., [5,6,7,8]     (Jun–Sep)
+ *      mobile?: { perMonthPx?: number },
+ *      logo?: {
+ *        url?: string,
+ *        opacity?: number,
+ *        size?: { desktop?:number, tablet?:number, mobile?:number },
+ *        smartPlacement?: boolean,
+ *        homeHref?: string
+ *      }
+ *    }
  */
 (function(){
-  const NS = "http://www.w3.org/2000/svg";
-  const XLINK = "http://www.w3.org/1999/xlink";
+  const NS   = "http://www.w3.org/2000/svg";
+  const XLINK= "http://www.w3.org/1999/xlink";
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const f2c = f => (f-32)*5/9;
-  const in2mm = i => i*25.4;
+  const f2c  = f => (f-32)*5/9;
+  const in2mm= i => i*25.4;
 
+  /* ---------- tiny helpers ---------- */
   function uid(){ return 'ptc-' + Math.random().toString(36).slice(2,9); }
   function svg(w=960,h=440){ const s=document.createElementNS(NS,'svg'); s.setAttribute('viewBox',`0 0 ${w} ${h}`); return s; }
   function path(d, stroke, sw=2){ const p=document.createElementNS(NS,'path'); p.setAttribute('d',d); p.setAttribute('fill','none'); p.setAttribute('stroke',stroke); p.setAttribute('stroke-width',sw); p.setAttribute('stroke-linejoin','round'); p.setAttribute('stroke-linecap','round'); return p; }
@@ -18,9 +35,9 @@
 
   function cssVar(el, name){ return getComputedStyle(el).getPropertyValue(name).trim(); }
   function getVarUrl(el, name, fallback){
-    let v = cssVar(el, name);
-    if(!v){ return fallback; }
-    let m = v.match(/url\((['"]?)(.*?)\1\)/i);
+    const v = cssVar(el, name);
+    if(!v) return fallback;
+    const m = v.match(/url\((['"]?)(.*?)\1\)/i);
     return m ? m[2] : v;
   }
 
@@ -34,35 +51,46 @@
       else { groups.push(cur); cur=[arr[i]]; }
     }
     groups.push(cur);
+    // wrap join (Dec→Jan)
     if(arr[0]===0 && arr[arr.length-1]===11){
       const first = groups.shift();
-      const last = groups.pop();
+      const last  = groups.pop();
       groups.unshift(last.concat(first));
     }
     return groups;
   }
 
+  /* ---------- main render ---------- */
   function render(container, data, opts){
     if(!container) throw new Error("pilgrim.tempChart.render: container is required");
-    container.setAttribute('data-pilgrim','chart');
+    container.setAttribute('data-pilgrim','chart'); // enforce scope
 
-    const options = Object.assign({
+    // Defaults (deep-merge logo to avoid wiping nested size keys)
+    const defaultLogo = {
+      url: getVarUrl(container, '--pilgrim-logo-url', 'https://aarondsmith.github.io/pilgrims-path-assets/logo.png'),
+      opacity: parseFloat(cssVar(container,'--pilgrim-logo-opacity')) || 0.5,
+      size: { desktop:55, tablet:50, mobile:45 },
+      smartPlacement: true,
+      homeHref: "https://thepilgrimspath.net"
+    };
+    const base = {
       locationLabel: "Location",
       unitsDefault: "imperial",
-      wetMonths: [10,11,0,1,2],
-      dryMonths: [5,6,7,8],
-      mobile: { perMonthPx: 116 },
-      logo: {
-        url: getVarUrl(container, '--pilgrim-logo-url', 'https://aarondsmith.github.io/pilgrims-path-assets/logo.png'),
-        opacity: parseFloat(cssVar(container,'--pilgrim-logo-opacity')) || 0.5,
-        size: { desktop:55, tablet:50, mobile:45 },
-        smartPlacement: true,
-        homeHref: "https://thepilgrimspath.net"
-      }
-    }, opts||{});
+      wetMonths: [10,11,0,1,2], // Nov–Mar
+      dryMonths: [5,6,7,8],     // Jun–Sep
+      mobile: { perMonthPx: 116 }
+    };
+    const options = { ...base, ...(opts||{}) };
+    const userLogo = (opts && opts.logo) || {};
+    options.logo = {
+      ...defaultLogo,
+      ...userLogo,
+      size: { ...defaultLogo.size, ...(userLogo.size || {}) }
+    };
 
+    // DOM skeleton
     const id = uid();
-    const html = `
+    container.innerHTML = `
       <div class="pilgrim-card" role="region" aria-label="${options.locationLabel} climate charts">
         <div class="pilgrim-head">
           <h2>${options.locationLabel} Climate</h2>
@@ -72,12 +100,12 @@
         <div class="pilgrim-controls">
           <div class="pilgrim-unit" role="group" aria-label="Units">
             <label><input type="radio" name="units-${id}" value="imperial" ${options.unitsDefault==='imperial'?'checked':''}> °F / in</label>
-            <label><input type="radio" name="units-${id}" value="metric" ${options.unitsDefault==='metric'?'checked':''}> °C / mm</label>
+            <label><input type="radio" name="units-${id}" value="metric"   ${options.unitsDefault==='metric'  ?'checked':''}> °C / mm</label>
           </div>
         </div>
 
         <div class="pilgrim-tabs" role="tablist" aria-label="${options.locationLabel} climate tabs">
-          <button class="pilgrim-tab" role="tab" aria-selected="true" aria-controls="panel-temps-${id}" id="tab-temps-${id}">Temperatures</button>
+          <button class="pilgrim-tab" role="tab" aria-selected="true"  aria-controls="panel-temps-${id}"  id="tab-temps-${id}">Temperatures</button>
           <button class="pilgrim-tab" role="tab" aria-selected="false" aria-controls="panel-precip-${id}" id="tab-precip-${id}">Precipitation</button>
         </div>
 
@@ -108,19 +136,24 @@
       </div>
       <div class="pilgrim-tt" id="tt-${id}" role="tooltip" aria-hidden="true"></div>
     `;
-    container.innerHTML = html;
 
+    // Scoped queries
     const q = sel => container.querySelector(sel);
     const tooltip = q('#tt-'+id);
 
+    // State & media
     let units = options.unitsDefault;
     const mediaMobile = window.matchMedia("(max-width: 480px)");
     const mediaTablet = window.matchMedia("(max-width: 768px)");
+    const isMobile = ()=> mediaMobile.matches;
+    const isTablet = ()=> mediaTablet.matches && !isMobile();
 
+    // Wire units
     container.querySelectorAll(`input[name="units-${id}"]`).forEach(r=>{
       r.addEventListener('change', e=>{ units=e.target.value; drawActive(true); });
     });
 
+    // Tabs
     const tabs = [ q('#tab-temps-'+id), q('#tab-precip-'+id) ];
     const panels = { temps: q('#panel-temps-'+id), precip: q('#panel-precip-'+id) };
     let active='temps';
@@ -142,12 +175,12 @@
       snapHint(which);
     }
 
+    // Tooltip
     function showTip(txt, x, y){ tooltip.textContent = txt; tooltip.classList.add('show'); moveTip(x,y); }
     function hideTip(){ tooltip.classList.remove('show'); }
     function moveTip(x,y){ tooltip.style.left = (x+12)+'px'; tooltip.style.top = (y+14)+'px'; }
 
-    function isMobile(){ return mediaMobile.matches; }
-    function isTablet(){ return mediaTablet.matches && !isMobile(); }
+    // Layout
     function computeLayout(){
       const mobile = isMobile(), tablet = isTablet();
       const baseH = mobile ? 420 : (tablet ? 440 : 460);
@@ -160,40 +193,26 @@
       return { svgW, svgH, innerW, innerH: svgH - m.t - m.b, dx, m, mobile, tablet };
     }
 
-    function groupBands(svgEl, dx, m, innerH, xBand, arr, fill){
-      const groups = (function(nums){
-        if(!nums || !nums.length) return [];
-        const arr = Array.from(new Set(nums)).sort((a,b)=>a-b);
-        const groups = [];
-        let cur=[arr[0]];
-        for(let i=1;i<arr.length;i++){
-          if(arr[i] === arr[i-1]+1){ cur.push(arr[i]); }
-          else { groups.push(cur); cur=[arr[i]]; }
-        }
-        groups.push(cur);
-        if(arr[0]===0 && arr[arr.length-1]===11){
-          const first = groups.shift();
-          const last = groups.pop();
-          groups.unshift(last.concat(first));
-        }
-        return groups;
-      })(arr);
-      groups.forEach(g=>{
-        const start = g[0];
-        const w = dx * g.length;
+    // Bands
+    function drawSeasonBands(svgEl, dx, m, innerH, xBand, arr, fill){
+      groupConsecutiveMonths(arr).forEach(g=>{
+        const start = g[0], w = dx * g.length;
         svgEl.appendChild(rect(xBand(start), m.t, w, innerH, fill));
       });
     }
 
+    // Logo (hardened)
     function addLogo(svgEl, m, innerW, innerH, smartInfo){
-      const mobile = isMobile(), tablet = isTablet();
-      const w = mobile ? (options.logo.size.mobile||45) : (tablet ? (options.logo.size.tablet||50) : (options.logo.size.desktop||55));
+      const size = (options.logo && options.logo.size) || { desktop:55, tablet:50, mobile:45 };
+      const w = isMobile() ? (size.mobile||45) : (isTablet() ? (size.tablet||50) : (size.desktop||55));
       const h = w;
+
+      // placement
       let place = "bottom-right";
-      if(mobile){ place = "top-right"; }
+      if(isMobile()){ place = "top-right"; }
       else if(options.logo.smartPlacement && smartInfo){
-        const { decRatio=0, novRatio=0 } = smartInfo;
-        if(decRatio >= 0.60 || novRatio >= 0.70) place = "top-right";
+        const dec = smartInfo.decRatio || 0, nov = smartInfo.novRatio || 0;
+        if(dec >= 0.60 || nov >= 0.70) place = "top-right";
       }
       const x = m.l + innerW - w - 8;
       const y = (place === "top-right") ? (m.t + 8) : (m.t + innerH - h - 8);
@@ -218,10 +237,11 @@
       svgEl.appendChild(a);
     }
 
+    // Scroll shell
     function makeScrollShell(ids, svgEl, layout){
-      const scroll = container.querySelector('#'+ids.scroll);
-      const wide   = container.querySelector('#'+ids.wide);
-      const snapT  = container.querySelector('#'+ids.snap);
+      const scroll = q('#'+ids.scroll);
+      const wide   = q('#'+ids.wide);
+      const snapT  = q('#'+ids.snap);
 
       wide.style.width = layout.svgW + "px";
       while (wide.firstChild) wide.removeChild(wide.firstChild);
@@ -241,6 +261,7 @@
       });
     }
 
+    /* ---------- draw: Temps ---------- */
     function drawTemps(){
       const layout = computeLayout();
       const { svgW, svgH, innerW, innerH, dx, m } = layout;
@@ -259,9 +280,10 @@
 
       const svgEl = svg(svgW, svgH);
 
-      groupBands(svgEl, dx, m, innerH, xBand, options.wetMonths, cssVar(container,'--pilgrim-band-wet'));
-      groupBands(svgEl, dx, m, innerH, xBand, options.dryMonths, cssVar(container,'--pilgrim-band-dry'));
+      drawSeasonBands(svgEl, dx, m, innerH, xBand, options.wetMonths, cssVar(container,'--pilgrim-band-wet'));
+      drawSeasonBands(svgEl, dx, m, innerH, xBand, options.dryMonths, cssVar(container,'--pilgrim-band-dry'));
 
+      // grid + labels
       const yTicks = 5;
       for(let i=0;i<=yTicks;i++){
         const val=minY+i*(maxY-minY)/yTicks, yy=y(val);
@@ -271,6 +293,7 @@
       months.forEach((mo,i)=> svgEl.appendChild(text(xBand(i)+dx/2,svgH-18,mo,{size:12,fill:cssVar(container,'--pilgrim-neutral-500'),family:'Poppins'})));
       svgEl.appendChild(text(16,m.t+innerH/2,unitLabel,{anchor:'start',size:12,fill:cssVar(container,'--pilgrim-neutral-500'),family:'Poppins'}));
 
+      // series
       const series = [
         {arr: high, color: cssVar(container,'--pilgrim-color-4'), label:'High'},
         {arr: mean, color: cssVar(container,'--pilgrim-color-3'), label:'Mean'},
@@ -278,8 +301,8 @@
       ];
       series.forEach(s=>{
         const pts = s.arr.map((v,i)=>[x(i),y(v)]);
-        const d = pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
-        const p = path(d,s.color,2);
+        const d   = pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');
+        const p   = path(d,s.color,2);
         const len = 1 + pts.reduce((a,c,i,arr)=> i? a + Math.hypot(c[0]-arr[i-1][0], c[1]-arr[i-1][1]) : 0, 0);
         p.style.strokeDasharray=len; p.style.strokeDashoffset=len; p.style.transition='stroke-dashoffset .8s ease';
         requestAnimationFrame(()=>{ p.style.strokeDashoffset='0'; });
@@ -303,6 +326,7 @@
       return svgH;
     }
 
+    /* ---------- draw: Precip ---------- */
     function drawPrecip(){
       const layout = computeLayout();
       const { svgW, svgH, innerW, innerH, dx, m } = layout;
@@ -312,14 +336,15 @@
       const maxV = Math.max(...vals) * 1.15;
 
       const xBand = i => m.l + i*dx;
-      const bw = dx*.66;
+      const bw = dx * .66;
       const y = v => m.t + innerH - (v/maxV)*innerH;
 
       const svgEl = svg(svgW, svgH);
 
-      groupBands(svgEl, dx, m, innerH, xBand, options.wetMonths, cssVar(container,'--pilgrim-band-wet'));
-      groupBands(svgEl, dx, m, innerH, xBand, options.dryMonths, cssVar(container,'--pilgrim-band-dry'));
+      drawSeasonBands(svgEl, dx, m, innerH, xBand, options.wetMonths, cssVar(container,'--pilgrim-band-wet'));
+      drawSeasonBands(svgEl, dx, m, innerH, xBand, options.dryMonths, cssVar(container,'--pilgrim-band-dry'));
 
+      // grid + labels
       const yTicks = 5;
       for(let i=0;i<=yTicks;i++){
         const val=(maxV/yTicks)*i, yy=y(val);
@@ -329,6 +354,7 @@
       months.forEach((mo,i)=> svgEl.appendChild(text(xBand(i)+dx/2,svgH-18,mo,{size:12,fill:cssVar(container,'--pilgrim-neutral-500'),family:'Poppins'})));
       svgEl.appendChild(text(16,m.t+innerH/2,unitLabel,{anchor:'start',size:12,fill:cssVar(container,'--pilgrim-neutral-500'),family:'Poppins'}));
 
+      // bars
       vals.forEach((v,i)=>{
         const xx = xBand(i) + (dx-bw)/2;
         const yy = y(v);
@@ -344,6 +370,7 @@
 
       svgEl.appendChild(text(svgW/2,20,`Average Monthly Precipitation (${unitLabel}) — ${options.locationLabel}`,{weight:700,family:'Manrope'}));
 
+      // smart placement: if Nov/Dec are very tall, move logo to top-right
       const decRatio = vals[11] / (maxV||1);
       const novRatio = vals[10] / (maxV||1);
       addLogo(svgEl, m, innerW, innerH, { decRatio, novRatio });
@@ -352,15 +379,17 @@
       return svgH;
     }
 
+    // equalize panel heights
     function equalizeHeights(){
       const tempsPanel = panels.temps.querySelector('.pilgrim-chart-wrap');
-      const precipPanel = panels.precip.querySelector('.pilgrim-chart-wrap');
+      const precipPanel= panels.precip.querySelector('.pilgrim-chart-wrap');
       const base = tempsPanel.getBoundingClientRect().height;
       precipPanel.style.minHeight = base + "px";
     }
 
+    // swipe hint
     function snapHint(which){
-      const el = container.querySelector('#'+(which==='temps' ? `temps-scroll-${id}` : `precip-scroll-${id}`));
+      const el = q('#'+(which==='temps' ? `temps-scroll-${id}` : `precip-scroll-${id}`));
       if(!el) return;
       if(el.scrollWidth > el.clientWidth && el.scrollLeft === 0){
         el.scrollBy({left: 40, behavior:'smooth'});
@@ -368,17 +397,20 @@
       }
     }
 
+    // draw orchestrator
     function drawActive(fromUnitsChange=false){
       if(active==='temps'){ drawTemps(); } else { drawPrecip(); }
       equalizeHeights();
-      [container.querySelector('#temps-scroll-'+id), container.querySelector('#precip-scroll-'+id)].forEach(sc=>{
-        if(sc) {
-          if(sc.scrollWidth > sc.clientWidth) sc.classList.add('scrollable'); else sc.classList.remove('scrollable');
+      [q('#temps-scroll-'+id), q('#precip-scroll-'+id)].forEach(sc=>{
+        if(sc){
+          if(sc.scrollWidth > sc.clientWidth) sc.classList.add('scrollable');
+          else sc.classList.remove('scrollable');
         }
       });
       if(!fromUnitsChange) snapHint(active);
     }
 
+    // initial render + resize
     drawTemps();
     drawPrecip();
     equalizeHeights();
@@ -386,6 +418,7 @@
     window.addEventListener('resize', ()=> drawActive() );
   }
 
+  // expose
   window.pilgrim = window.pilgrim || {};
   window.pilgrim.tempChart = window.pilgrim.tempChart || { render };
 })();
