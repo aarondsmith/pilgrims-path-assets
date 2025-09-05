@@ -188,13 +188,28 @@
       return { svgW, svgH, innerW, innerH: svgH - m.t - m.b, dx, m, mobile, tablet };
     }
 
-    // Bands
-    function drawSeasonBands(svgEl, dx, m, innerH, xBand, arr, fill){
-      groupConsecutiveMonths(arr).forEach(g=>{
-        const start = g[0], w = dx * g.length;
-        svgEl.appendChild(rect(xBand(start), m.t, w, innerH, fill));
-      });
-    }
+      // Break any month list into contiguous segments (e.g., [10,11,0,1,2] -> [[10,2],[0,3]])
+      function monthSegments(arr){
+        const s = Array.from(new Set(arr)).sort((a,b)=>a-b);
+        if (!s.length) return [];
+        const segs = [];
+        let start = s[0];
+        for (let i = 1; i <= s.length; i++){
+          const prev = s[i-1];
+          const cur  = s[i];
+          if (i === s.length || cur !== prev + 1){
+            segs.push([start, prev - start + 1]);   // [startIndex, length]
+            start = cur;
+          }
+        }
+        return segs;
+      }
+
+function drawSeasonBands(svgEl, dx, m, innerH, xBand, arr, fill){
+  monthSegments(arr).forEach(([start, len])=>{
+    svgEl.appendChild(rect(xBand(start), m.t, dx * len, innerH, fill));
+  });
+}
 
     function addLogo(svgEl, m, innerW, innerH, smartInfo){
   const size = (options.logo && options.logo.size) || { desktop:55, tablet:50, mobile:45 };
