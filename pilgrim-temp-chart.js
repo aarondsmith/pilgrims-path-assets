@@ -201,41 +201,56 @@
       });
     }
 
-    // Logo (hardened)
     function addLogo(svgEl, m, innerW, innerH, smartInfo){
-      const size = (options.logo && options.logo.size) || { desktop:55, tablet:50, mobile:45 };
-      const w = isMobile() ? (size.mobile||45) : (isTablet() ? (size.tablet||50) : (size.desktop||55));
-      const h = w;
+  const size = (options.logo && options.logo.size) || { desktop:55, tablet:50, mobile:45 };
+  const mobile = isMobile(), tablet = isTablet();
+  const w = mobile ? (size.mobile||45) : (tablet ? (size.tablet||50) : (size.desktop||55));
+  const h = w;
 
-      // placement
-      let place = "bottom-right";
-      if(isMobile()){ place = "top-right"; }
-      else if(options.logo.smartPlacement && smartInfo){
-        const dec = smartInfo.decRatio || 0, nov = smartInfo.novRatio || 0;
-        if(dec >= 0.60 || nov >= 0.70) place = "top-right";
-      }
-      const x = m.l + innerW - w - 8;
-      const y = (place === "top-right") ? (m.t + 8) : (m.t + innerH - h - 8);
+  // default placement
+  let place = "bottom-right";
 
-      const a = document.createElementNS(NS,'a');
-      a.setAttribute('href', options.logo.homeHref || 'https://thepilgrimspath.net');
-      a.setAttribute('target','_blank');
-      a.setAttribute('rel','noopener');
-      a.setAttribute('aria-label',"Go to The Pilgrim’s Path home");
+  // 1) Always use top-right on very small screens
+  if (mobile) place = "top-right";
 
-      const img = document.createElementNS(NS,'image');
-      const url = options.logo.url || getVarUrl(container, '--pilgrim-logo-url');
-      img.setAttributeNS(XLINK,'href', url);
-      img.setAttribute('x', x);
-      img.setAttribute('y', y);
-      img.setAttribute('width', w);
-      img.setAttribute('height', h);
-      img.setAttribute('opacity', String(options.logo.opacity!=null? options.logo.opacity : 0.5));
-      img.style.pointerEvents = 'auto';
-
-      a.appendChild(img);
-      svgEl.appendChild(a);
+  // 2) Collision avoidance for TEMPS: if Dec low line would sit inside logo box, move up
+  if (smartInfo && typeof smartInfo.tempDecY === "number") {
+    const bottomLogoTop = m.t + innerH - h - 8;        // y where logo's top would be at bottom-right
+    if (smartInfo.tempDecY >= bottomLogoTop - 4) {      // 4px buffer
+      place = "top-right";
     }
+  }
+
+  // 3) Existing smart placement for PRECIP (tall Nov/Dec bars)
+  if (options.logo.smartPlacement && smartInfo && place !== "top-right") {
+    const decRatio = smartInfo.decRatio || 0;
+    const novRatio = smartInfo.novRatio || 0;
+    if (decRatio >= 0.60 || novRatio >= 0.70) place = "top-right";
+  }
+
+  const x = m.l + innerW - w - 8;
+  const y = (place === "top-right") ? (m.t + 8) : (m.t + innerH - h - 8);
+
+  const a = document.createElementNS(NS,'a');
+  a.setAttribute('href', options.logo.homeHref || 'https://thepilgrimspath.net');
+  a.setAttribute('target','_blank');
+  a.setAttribute('rel','noopener');
+  a.setAttribute('aria-label',"Go to The Pilgrim’s Path home");
+
+  const img = document.createElementNS(NS,'image');
+  const url = options.logo.url || getVarUrl(container, '--pilgrim-logo-url');
+  img.setAttributeNS(XLINK,'href', url);
+  img.setAttribute('x', x);
+  img.setAttribute('y', y);
+  img.setAttribute('width', w);
+  img.setAttribute('height', h);
+  img.setAttribute('opacity', String(options.logo.opacity!=null? options.logo.opacity : 0.5));
+  img.style.pointerEvents = 'auto';
+
+  a.appendChild(img);
+  svgEl.appendChild(a);
+}
+
 
     // Scroll shell
     function makeScrollShell(ids, svgEl, layout){
