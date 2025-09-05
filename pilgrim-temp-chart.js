@@ -51,12 +51,7 @@
       else { groups.push(cur); cur=[arr[i]]; }
     }
     groups.push(cur);
-    // wrap join (Dec→Jan)
-    if(arr[0]===0 && arr[arr.length-1]===11){
-      const first = groups.shift();
-      const last  = groups.pop();
-      groups.unshift(last.concat(first));
-    }
+
     return groups;
   }
 
