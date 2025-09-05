@@ -1,14 +1,13 @@
-
 /* Pilgrim Map Kit — scoped styles
    Wrapper: .pilgrim-map
-   Fonts are expected to be loaded by the page (see usage snippet).
+   Fonts are expected to be loaded by the page header (Manrope + Poppins).
 */
 .pilgrim-map {
   --pm-font-heading: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
   --pm-font-body: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
   --pm-color-primary: #1976d2;    /* route + accents */
   --pm-color-accent:  #003366;    /* stage dots, dark accents */
-  --pm-color-label:   #0b5394;    /* city label text */
+  --pm-color-label:   #0b5394;    /* city label text (Camino blue) */
   --pm-color-card:    #ffffff;
   --pm-color-border:  #e5e7eb;
   --pm-color-errorbg: #fff5f5;
@@ -24,16 +23,31 @@
 .pilgrim-map .pm-elev-canvas { width: 100%; height: 220px; }
 .pilgrim-map .pm-error { display:none; margin-top:12px; padding:12px; border-left:4px solid #d32f2f; background: var(--pm-color-errorbg); color: var(--pm-color-errorfg); border-radius:6px; font-size:14px; }
 
-/* City labels (permanent tooltips) */
-.pilgrim-map .leaflet-tooltip.city-label {
+/* Camino-style city labels (no dark-mode override) */
+.pilgrim-map .leaflet-tooltip.city-label{
   background: transparent;
-  border: none;
+  border: 0;
   box-shadow: none;
   padding: 0 2px;
-  color: var(--pm-color-label);
+
+  color: #0b5394; /* Camino blue */
+  font-family: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   font-weight: 700;
-  font-size: 13px;
-  text-shadow: 0 0 3px #ffffff;
+  font-size: 14.5px;      /* bumped to 15.5px on wide screens below */
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+  pointer-events: none;
+
+  /* subtle white halo (no text-stroke) */
+  text-shadow:
+    0 0 2px rgba(255,255,255,0.95),
+    0 0 5px rgba(255,255,255,0.80);
+
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+@media (min-width: 900px){
+  .pilgrim-map .leaflet-tooltip.city-label { font-size: 15.5px; }
 }
 
 /* Hide the popup "diamond" tip for a cleaner look */
@@ -63,25 +77,11 @@
   border: 1px solid var(--pm-color-border);
   z-index: 500;
 }
-
-.pilgrim-map .pm-brand img {
-  display: block;
-  height: 26px;
-  width: auto;
-}
-
+.pilgrim-map .pm-brand img { display: block; height: 26px; width: auto; }
 .pilgrim-map .pm-brand span {
   font-family: var(--pm-font-heading);
   font-weight: 700;
   font-size: 13px;
   color: #1f2937;
   letter-spacing: .02em;
-}
-
-/* Optional dark mode (scoped) */
-@media (prefers-color-scheme: dark) {
-  .pilgrim-map .pm-elev-card { background: #0b0f14; border-color: #1f2937; }
-  .pilgrim-map .pm-error { background: #2a0f10; color: #ffd2d2; }
-  .pilgrim-map .leaflet-control-attribution { background: rgba(0,0,0,0.6); color: #d1d5db; }
-  .pilgrim-map .leaflet-tooltip.city-label { text-shadow: 0 0 3px #0b0f14; }
 }
