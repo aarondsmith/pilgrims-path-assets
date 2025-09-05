@@ -321,7 +321,7 @@
 
       svgEl.appendChild(text(svgW/2,20,`Monthly Temperatures (${unitLabel}) — ${options.locationLabel}`,{weight:700,family:'Manrope'}));
 
-      addLogo(svgEl, m, innerW, innerH);
+      addLogo(svgEl, m, innerW, innerH, { tempDecY: y(low[11]) });
 
       makeScrollShell({scroll:`temps-scroll-${id}`, wide:`temps-wide-${id}`, snap:`temps-snap-${id}`}, svgEl, layout);
       return svgH;
