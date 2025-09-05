@@ -274,7 +274,7 @@
       const all = low.concat(mean, high);
       const minY = Math.floor(Math.min(...all)/5)*5;
       const maxY = Math.ceil(Math.max(...all)/5)*5;
-      const xBand = i => m.l + i*dx;
+      const x = i => xBand(i) + dx/2;
       const x = i => m.l + (i/(months.length-1))*innerW;
       const y = v => m.t + innerH - ((v-minY)/(maxY-minY))*innerH;
 
